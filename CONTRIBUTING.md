@@ -19,6 +19,7 @@ Please do:
 Prerequisites:
 
 - Go 1.16+
+- goreleaser 0.16+
 
 To build the PDK, run the following command:
 
@@ -37,6 +38,7 @@ To build the PDK, run the following command:
 To run the new binary:
 
 ```bash
+> cd dist/pct_*/
 > ./pct [command]
 ```
 
