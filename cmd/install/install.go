@@ -15,6 +15,7 @@ type InstallCommand struct {
 	InstallPath     string
 	Force           bool
 	PctInstaller    pct.PctInstallerI
+	GitUri 			string
 }
 
 type InstallCommandI interface {
@@ -32,6 +33,7 @@ func (ic *InstallCommand) CreateCommand() *cobra.Command {
 	tmp.Flags().StringVar(&ic.InstallPath, "templatepath", "", "location of installed templates")
 	err := viper.BindPFlag("templatepath", tmp.Flags().Lookup("templatepath"))
 	tmp.Flags().BoolVarP(&ic.Force, "force", "f", false, "Forces the install of a template without error, if it already exists. ")
+	tmp.Flags().StringVar(&ic.GitUri, "git-uri", "", "Installs a template package from a remote git repository.")
 
 	cobra.CheckErr(err)
 
