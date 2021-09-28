@@ -21,3 +21,7 @@ func (p *PctInstaller) Install(templatePkg string, targetDir string, force bool)
 
 	return filepath.Clean("/unit/test/path"), nil
 }
+
+func (p *PctInstaller) InstallClone(templatePkg string, targetDir string, force bool) (string, error) {
+	return "WIP", fmt.Errorf("Work in Progress")
+}

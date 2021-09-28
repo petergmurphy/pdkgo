@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -26,6 +27,7 @@ type PctInstaller struct {
 
 type PctInstallerI interface {
 	Install(templatePkg string, targetDir string, force bool) (string, error)
+	InstallClone(templatePkg string, targetDir string, force bool) (string, error)
 }
 
 func (p *PctInstaller) Install(templatePkg string, targetDir string, force bool) (string, error) {
@@ -66,6 +68,74 @@ func (p *PctInstaller) Install(templatePkg string, targetDir string, force bool)
 		return "", fmt.Errorf("Could not create tempdir to gunzip template: %v", err)
 	}
 
+	folderPath, err := p.unTarGz(templatePkg, tempDir)
+	if err != nil {
+		return "", err
+	}
+
+	// determine the properties of the template
+	info, err := p.readConfig(filepath.Join(folderPath, "pct-config.yml"))
+	if err != nil {
+		return "", fmt.Errorf("Invalid config: %v", err.Error())
+	}
+
+	namespacedPath, err := p.setupTemplateNamespace(targetDir, info, folderPath, force)
+	if err != nil {
+		return "", fmt.Errorf("Unable to install in namespace: %v", err.Error())
+	}
+
+	return namespacedPath, nil
+}
+
+func (p *PctInstaller) InstallClone(gitUri string, targetDir string, force bool) (string, error) {
+	// Validate git URI
+	log.Info().Msgf("Git URI: ", gitUri)
+	if !strings.HasPrefix(gitUri, "http") || !strings.HasSuffix(gitUri, ".git") {
+		return "", fmt.Errorf("Could not clone git repo: Invalid URI provided")
+	}
+
+	// Create temp folder
+	tempDir, err := p.AFS.TempDir("", "")
+	defer func() {
+		err := p.AFS.Remove(tempDir)
+		log.Debug().Msgf("Failed to remove temp dir: %v", err)
+	}()
+	if err != nil {
+		return "", fmt.Errorf("Could not create tempdir to gunzip template: %v", err)
+	}
+
+	// Clone git repository to temp folder
+	folderPath, err := p.cloneTemplate(gitUri, tempDir)
+	if err != nil {
+		return "", fmt.Errorf("Could not clone git repository: %v", err)
+	}
+
+	// Read config to determine template properties
+	info, err := p.readConfig(filepath.Join(folderPath, "pct-config.yml"))
+	if err != nil {
+		return "", fmt.Errorf("Invalid config: %v", err.Error())
+	}
+
+	// Create namespaced directory and move contents of temp folder to it
+	namespacedPath, err := p.setupTemplateNamespace(targetDir, info, folderPath, force)
+	if err != nil {
+		return "", fmt.Errorf("Unable to install in namespace: %v", err.Error())
+	}
+
+	return namespacedPath, nil
+}
+
+func (p *PctInstaller) cloneTemplate(gitUri string, tempDir string) (string, error) {
+	clonePath := filepath.Join(tempDir, "temp")
+	command := exec.Command("git", "clone", gitUri, clonePath)
+	err := command.Run()
+	if err != nil {
+		return "", err
+	}
+	return clonePath, nil
+}
+
+func (p *PctInstaller) unTarGz(templatePkg string, tempDir string) (string, error) {
 	// gunzip the tar.gz to created tempdir
 	tarfile, err := p.Gunzip.Gunzip(templatePkg, tempDir)
 	if err != nil {
@@ -77,19 +147,7 @@ func (p *PctInstaller) Install(templatePkg string, targetDir string, force bool)
 	if err != nil {
 		return "", fmt.Errorf("Could not UNTAR template (%v): %v", templatePkg, err)
 	}
-
-	// determine the properties of the template
-	info, err := p.readConfig(filepath.Join(untarPath, "pct-config.yml"))
-	if err != nil {
-		return "", fmt.Errorf("Invalid config: %v", err.Error())
-	}
-
-	namespacedPath, err := p.setupTemplateNamespace(targetDir, info, untarPath, force)
-	if err != nil {
-		return "", fmt.Errorf("Unable to install in namespace: %v", err.Error())
-	}
-
-	return namespacedPath, nil
+	return untarPath, nil
 }
 
 func (p *PctInstaller) readConfig(configFile string) (info PuppetContentTemplateInfo, err error) {

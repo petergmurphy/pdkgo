@@ -15,7 +15,7 @@ type InstallCommand struct {
 	InstallPath     string
 	Force           bool
 	PctInstaller    pct.PctInstallerI
-	GitUri 			string
+	GitUri          string
 }
 
 type InstallCommandI interface {
@@ -41,7 +41,14 @@ func (ic *InstallCommand) CreateCommand() *cobra.Command {
 }
 
 func (ic *InstallCommand) executeInstall(cmd *cobra.Command, args []string) error {
-	templateInstallationPath, err := ic.PctInstaller.Install(ic.TemplatePkgPath, ic.InstallPath, ic.Force)
+	var templateInstallationPath string = ""
+	var err error = nil
+	if ic.GitUri != "" { // For cloning a template
+		templateInstallationPath, err = ic.PctInstaller.InstallClone(ic.GitUri, ic.InstallPath, ic.Force)
+	} else { // For downloading and/or locally installing a template
+		templateInstallationPath, err = ic.PctInstaller.Install(ic.TemplatePkgPath, ic.InstallPath, ic.Force)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -64,18 +71,17 @@ func (ic *InstallCommand) setInstallPath() error {
 }
 
 func (ic *InstallCommand) preExecute(cmd *cobra.Command, args []string) error {
-	if len(args) < 1 {
+	if len(args) < 1 && ic.GitUri == "" {
 		return fmt.Errorf("Path to template package (tar.gz) should be first argument")
-	}
-
-	if len(args) == 1 {
-		ic.TemplatePkgPath = args[0]
-		return ic.setInstallPath()
 	}
 
 	if len(args) > 1 {
 		return fmt.Errorf("Incorrect number of arguments; path to template package (tar.gz) should be first argument")
 	}
 
-	return nil
+	if len(args) == 1 {
+		ic.TemplatePkgPath = args[0]
+	}
+
+	return ic.setInstallPath()
 }
