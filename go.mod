@@ -1,4 +1,4 @@
-module github.com/puppetlabs/pdkgo
+module github.com/petergmurphy/pdkgo
 
 go 1.16
 
